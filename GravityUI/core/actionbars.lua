@@ -2633,6 +2633,9 @@ function ns.RefreshActionBars()
                     wrapper:SetClampedToScreen(true)
                     wrapper:SetUserPlaced(true)
 
+                    -- Capture original Blizzard position BEFORE reparenting
+                    local origPoint, origRelTo, origRelPoint, origX, origY = frame:GetPoint()
+
                     -- Reparent Blizzard frame into our wrapper (pcall for safety)
                     pcall(function()
                         frame:SetParent(wrapper)
@@ -2652,6 +2655,12 @@ function ns.RefreshActionBars()
                             pcall(f.SetPoint, f, "CENTER", wrapper, "CENTER", 0, 0)
                         end
                     end)
+
+                    -- Store original position for fallback
+                    wrapper._origPoint = origPoint
+                    wrapper._origRelPoint = origRelPoint
+                    wrapper._origX = origX
+                    wrapper._origY = origY
                 end
 
                 -- Size wrapper to match the Blizzard frame
@@ -2679,6 +2688,14 @@ function ns.RefreshActionBars()
                     local pos = barDB.position
                     wrapper:ClearAllPoints()
                     wrapper:SetPoint(pos.point or "CENTER", UIParent, pos.relativePoint or "CENTER", pos.x or 0, pos.y or 0)
+                else
+                    -- No saved position — use Blizzard frame's original position as default
+                    wrapper:ClearAllPoints()
+                    local pt = wrapper._origPoint or "BOTTOM"
+                    local rp = wrapper._origRelPoint or "BOTTOM"
+                    local ox = wrapper._origX or 0
+                    local oy = wrapper._origY or 0
+                    wrapper:SetPoint(pt, UIParent, rp, ox, oy)
                 end
 
                 wrapper:Show()
