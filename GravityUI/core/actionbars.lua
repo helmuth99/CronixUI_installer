@@ -2609,9 +2609,22 @@ function ns.RefreshActionBars()
         -- Register extra bars (BagBar, MicroBar) for mover system.
         -- These are protected Blizzard frames that reject StartMoving().
         -- Solution: wrap them in our own movable frame.
+        -- Uses deferred retry because Blizzard may not have created
+        -- MicroMenuContainer / BagsBar yet when this runs on first login.
         for _, info in ipairs(EXTRA_BARS) do
-            local frame = info.frameName and _G[info.frameName]
-            if frame then
+            local function RegisterExtraBar(info, attempt)
+                attempt = attempt or 1
+                local frame = info.frameName and _G[info.frameName]
+                if not frame then
+                    -- Frame doesn't exist yet — retry up to 3 times at 0.5s intervals
+                    if attempt < 3 then
+                        C_Timer_After(0.5, function()
+                            RegisterExtraBar(info, attempt + 1)
+                        end)
+                    end
+                    return
+                end
+
                 local wrapperName = "GravityUI_" .. info.key .. "_Wrapper"
                 local wrapper = _G[wrapperName]
                 if not wrapper then
@@ -2659,8 +2672,9 @@ function ns.RefreshActionBars()
                     end)
                 end
 
-                -- Restore saved position
-                local barDB = db.bars and db.bars[info.key]
+                -- Restore saved position (re-read db in case deferred)
+                local freshDB = GetDB()
+                local barDB = freshDB and freshDB.bars and freshDB.bars[info.key]
                 if barDB and barDB.position then
                     local pos = barDB.position
                     wrapper:ClearAllPoints()
@@ -2689,6 +2703,8 @@ function ns.RefreshActionBars()
                     nil
                 )
             end
+
+            RegisterExtraBar(info)
         end
 
         -- Register ExtraAbilityContainer for our mover system.
